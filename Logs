@@ -1,0 +1,5 @@
+
+20.06.2026 What broke down
+- `python3.12` had a broken `pyexpat.so` (macOS system `libexpat` too old for Homebrew's Python) — fixed by patching with `install_name_tool` + re-signing
+- FastMCP 3.x removed `streamable_http_app()` — replaced with `mcp.http_app(transport="streamable-http")` and `mcp.custom_route()` decorator
+- Starlette deprecated `httpx` in `TestClient` — installed `httpx2`

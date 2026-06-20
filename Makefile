@@ -1,4 +1,4 @@
-.PHONY: install lint format test deploy destroy synth agent update-secrets verify-config clean
+.PHONY: install lint format test run-server deploy destroy synth agent update-secrets verify-config clean
 
 PYTHON   := python3
 PROMPT  ?= "train a resnet50 model, deadline 6h, optimize for low carbon"
@@ -37,6 +37,10 @@ update-secrets-dry:
 
 verify-config:
 	$(PYTHON) scripts/verify_config.py
+
+# Start MCP server locally for smoke-testing (no Lambda needed)
+run-server:
+	$(PYTHON) -m mcp_server.app
 
 # Run the Strands agent locally (set MCP_SERVER_URL in .env first)
 agent:
