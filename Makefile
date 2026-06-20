@@ -1,4 +1,4 @@
-.PHONY: install lint format test deploy destroy synth agent clean
+.PHONY: install lint format test deploy destroy synth agent update-secrets verify-config clean
 
 PYTHON   := python3
 PROMPT  ?= "train a resnet50 model, deadline 6h, optimize for low carbon"
@@ -26,6 +26,17 @@ deploy:
 
 destroy:
 	cdk destroy --force
+
+# Secrets & config — run after `make deploy`
+# Load .env first: export $(grep -v '^#' .env | xargs)
+update-secrets:
+	$(PYTHON) scripts/setup_secrets.py
+
+update-secrets-dry:
+	$(PYTHON) scripts/setup_secrets.py --dry-run
+
+verify-config:
+	$(PYTHON) scripts/verify_config.py
 
 # Run the Strands agent locally (set MCP_SERVER_URL in .env first)
 agent:
