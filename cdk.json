@@ -1,0 +1,20 @@
+{
+  "app": "python3 app.py",
+  "watch": {
+    "include": ["mcp_server/**"],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.pyc",
+      "cdk.out/**",
+      "tests/**"
+    ]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+    "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": true
+  }
+}
