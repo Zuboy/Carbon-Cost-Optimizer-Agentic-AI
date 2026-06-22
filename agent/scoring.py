@@ -66,10 +66,7 @@ def score_options(
     deadline: datetime,
     objective: str,
 ) -> list[ScoredOption]:
-    """Score feasible options by normalized cost × carbon; return sorted best-first.
-
-    TODO (T-09): implement min-max normalization and full scoring logic.
-    """
+    """Score feasible options by min-max normalized cost × carbon; return sorted best-first."""
     w_cost, w_carbon = parse_weights(objective)
     deadline_ts = deadline.timestamp()
     results: list[ScoredOption] = []
@@ -89,11 +86,17 @@ def score_options(
     if not results:
         return []
 
-    # TODO (T-09): normalize cost and carbon to [0,1] before computing score
-    # Placeholder: raw values used — will be replaced
-    max_cost = max(r.cost_usd for r in results) or 1.0
-    max_carbon = max(r.carbon_gco2 for r in results) or 1.0
+    min_cost = min(r.cost_usd for r in results)
+    max_cost = max(r.cost_usd for r in results)
+    min_carbon = min(r.carbon_gco2 for r in results)
+    max_carbon = max(r.carbon_gco2 for r in results)
+
+    cost_range = max_cost - min_cost
+    carbon_range = max_carbon - min_carbon
+
     for r in results:
-        r.score = w_cost * (r.cost_usd / max_cost) + w_carbon * (r.carbon_gco2 / max_carbon)
+        norm_cost = (r.cost_usd - min_cost) / cost_range if cost_range > 0 else 0.0
+        norm_carbon = (r.carbon_gco2 - min_carbon) / carbon_range if carbon_range > 0 else 0.0
+        r.score = w_cost * norm_cost + w_carbon * norm_carbon
 
     return sorted(results, key=lambda r: (r.score, r.carbon_gco2))
