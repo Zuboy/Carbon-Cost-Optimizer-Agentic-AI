@@ -27,6 +27,8 @@ EXPECTED_TOOLS = {
     "get_carbon_intensity",
     "launch_training_job",
     "get_job_status",
+    "schedule_deferred_job",
+    "cancel_deferred_job",
 }
 
 

@@ -14,6 +14,7 @@ from mcp_server.tools.spot_prices import get_spot_prices
 from mcp_server.tools.carbon_intensity import get_carbon_intensity
 from mcp_server.tools.training_job import launch_training_job
 from mcp_server.tools.job_status import get_job_status
+from mcp_server.tools.scheduler import schedule_deferred_job, cancel_deferred_job
 
 # ── FastMCP instance ──────────────────────────────────────────────────────────
 mcp = FastMCP(
@@ -21,8 +22,10 @@ mcp = FastMCP(
     instructions=(
         "Carbon & Cost Optimizer MCP server. "
         "Use get_spot_prices and get_carbon_intensity to evaluate candidate regions, "
-        "then launch_training_job to start the optimal SageMaker job, "
-        "and get_job_status to monitor progress."
+        "then launch_training_job to start the optimal SageMaker job immediately, "
+        "or schedule_deferred_job to defer launch to a greener/cheaper future hour. "
+        "Use cancel_deferred_job to cancel a pending deferred launch. "
+        "Use get_job_status to monitor a running job."
     ),
 )
 
@@ -30,6 +33,8 @@ mcp.tool()(get_spot_prices)
 mcp.tool()(get_carbon_intensity)
 mcp.tool()(launch_training_job)
 mcp.tool()(get_job_status)
+mcp.tool()(schedule_deferred_job)
+mcp.tool()(cancel_deferred_job)
 
 
 # ── Health route (registered directly on the FastMCP app) ─────────────────────

@@ -111,7 +111,9 @@ score_i = w_cost · norm(cost_i) + w_carbon · norm(carbon_i)      (lower = bett
 
 ## 6. Scheduling (defer-to-greenest-hour)
 
-When the optimal start is in the future, the agent creates a **one-time EventBridge Scheduler** entry targeting the MCP server's launch path (or a thin launch Lambda) with the resolved config. This decouples "decide now" from "run later" and survives agent session end. Re-evaluation at fire time is optional (carbon forecasts drift).
+When the optimal start is in the future, the agent creates a **one-time EventBridge Scheduler** entry (schedule group `cco`, `ActionAfterCompletion=DELETE`) that targets **SageMaker `CreateTrainingJob` directly** via the universal SDK target (`arn:aws:scheduler:::aws-sdk:sagemaker:createTrainingJob`) with the resolved config as the input payload. This avoids re-invoking the MCP Lambda at fire time and survives agent session end. Re-evaluation at fire time is optional (carbon forecasts drift).
+
+EventBridge assumes a dedicated **scheduler execution role** at fire time (separate from the Lambda and SageMaker roles), which holds `sagemaker:CreateTrainingJob` + scoped `iam:PassRole` for the SageMaker execution role. Implemented as `schedule_deferred_job` / `cancel_deferred_job` MCP tools (T-10).
 
 ---
 
@@ -128,9 +130,9 @@ When the optimal start is in the future, the agent creates a **one-time EventBri
 | Monitoring | CloudWatch | `cloudwatch:GetMetricData`, Logs |
 | Data | S3 | scoped to training bucket prefixes |
 
-- MCP Lambda role: only the action-tool permissions above; **no** `iam:PassRole` beyond the specific SageMaker execution role ARN.
+- MCP Lambda role: only the action-tool permissions above, plus two **scoped** `iam:PassRole` grants — for the SageMaker execution role (`PassedToService=sagemaker`) at immediate-launch time, and for the **scheduler execution role** (`PassedToService=scheduler`) when registering a deferred schedule's `Target.RoleArn`. No other PassRole.
 - Carbon API keys in **Secrets Manager**, not env vars.
-- SageMaker execution role separate from the Lambda role (passed via scoped `PassRole`).
+- Three separate roles: Lambda execution role, SageMaker execution role, and EventBridge **scheduler execution role** — each passed via scoped `PassRole` only to its own service.
 
 ---
 

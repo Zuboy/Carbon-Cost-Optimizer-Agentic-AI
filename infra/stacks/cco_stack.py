@@ -10,6 +10,7 @@ from aws_cdk import (
     aws_iam as iam,
     aws_lambda as lambda_,
     aws_s3 as s3,
+    aws_scheduler as scheduler,
     aws_secretsmanager as secretsmanager,
     aws_ssm as ssm,
 )
@@ -58,6 +59,30 @@ class CCOStack(cdk.Stack):
             iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSageMakerFullAccess")
         )
         training_bucket.grant_read_write(sagemaker_role)
+
+        # ── EventBridge Scheduler: group + execution role for deferred launches ──
+        # Deferred jobs target SageMaker CreateTrainingJob directly via the SDK target;
+        # EventBridge assumes this role at fire time. Schedules live in the `cco` group.
+        scheduler.CfnScheduleGroup(self, "CCOScheduleGroup", name="cco")
+
+        scheduler_role = iam.Role(
+            self,
+            "SchedulerExecutionRole",
+            assumed_by=iam.ServicePrincipal("scheduler.amazonaws.com"),
+            description="Role EventBridge Scheduler assumes to launch deferred SageMaker jobs",
+        )
+        scheduler_role.add_to_policy(iam.PolicyStatement(
+            sid="CreateDeferredTrainingJob",
+            actions=["sagemaker:CreateTrainingJob", "sagemaker:AddTags"],
+            resources=[f"arn:aws:sagemaker:*:{self.account}:training-job/cco-*"],
+        ))
+        # CreateTrainingJob passes the SageMaker execution role — scoped PassRole
+        scheduler_role.add_to_policy(iam.PolicyStatement(
+            sid="PassSageMakerRoleAtFireTime",
+            actions=["iam:PassRole"],
+            resources=[sagemaker_role.role_arn],
+            conditions={"StringEquals": {"iam:PassedToService": "sagemaker.amazonaws.com"}},
+        ))
 
         # ── IAM: MCP Lambda execution role (least-privilege) ─────────────────
         lambda_role = iam.Role(
@@ -115,6 +140,15 @@ class CCOStack(cdk.Stack):
             resources=[f"arn:aws:scheduler:*:{self.account}:schedule/cco/*"],
         ))
 
+        # Setting Target.RoleArn on a schedule requires PassRole on the scheduler role,
+        # scoped to the scheduler service so it can't be passed elsewhere.
+        lambda_role.add_to_policy(iam.PolicyStatement(
+            sid="PassSchedulerRole",
+            actions=["iam:PassRole"],
+            resources=[scheduler_role.role_arn],
+            conditions={"StringEquals": {"iam:PassedToService": "scheduler.amazonaws.com"}},
+        ))
+
         lambda_role.add_to_policy(iam.PolicyStatement(
             sid="CloudWatchMetrics",
             actions=["cloudwatch:PutMetricData", "cloudwatch:GetMetricData"],
@@ -162,6 +196,7 @@ class CCOStack(cdk.Stack):
             environment={
                 "POWERTOOLS_SERVICE_NAME": "cco-mcp-server",
                 "SAGEMAKER_ROLE_ARN": sagemaker_role.role_arn,
+                "SCHEDULER_ROLE_ARN": scheduler_role.role_arn,
                 "TRAINING_BUCKET": training_bucket.bucket_name,
             },
         )
@@ -248,6 +283,11 @@ class CCOStack(cdk.Stack):
             self, "SageMakerRoleARN",
             value=sagemaker_role.role_arn,
             description="SageMaker execution role ARN — pass in launch_training_job config",
+        )
+        cdk.CfnOutput(
+            self, "SchedulerRoleARN",
+            value=scheduler_role.role_arn,
+            description="EventBridge Scheduler execution role — used by schedule_deferred_job",
         )
         cdk.CfnOutput(
             self, "LambdaFunctionName",
